@@ -1,0 +1,554 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<!-- saved from url=(0071)http://www.cse.unsw.edu.au/~cs3231/assigns/os161/ass3/index.shtml?print -->
+<HTML><HEAD><TITLE>Assignment 3 COMP3231 Operating Systems 2003/S1</TITLE><LINK 
+title=OS href="Assignment 3 COMP3231 Operating Systems 2003-S1_files/.style.css" 
+type=text/css rel=stylesheet>
+<META http-equiv=Content-Type content="text/html; charset=iso-8859-1">
+<META 
+content="course University New South Wales UNSW&#10;      Computer Science Engineering" 
+name=Keywords>
+<META content="Kevin Elphinstone &amp; Cameron Stone" name=Author>
+<META content=document name=resource-type>
+<META content=en name=language>
+<META 
+content="COMP3231 Introductory level operating systems&#10;      course (third year)" 
+name=Description>
+<META content=document name=resource-type>
+<META content=en name=language>
+<META content="MSHTML 6.00.2800.1170" name=GENERATOR></HEAD>
+<BODY>
+<H2 align=center><FONT color=navy>Assignment 3: File System 
+Implementation</FONT></H2>
+<H2>Due Date: 8:00am, Monday, June 9th, Week 14</H2>
+<H3>Worth 25 marks (of the 100 available for the class mark component of the 
+course). 13 marks for automarking, 12 marks awarded manually for correctness, 
+performance, and clarity.</H3>
+<H3>The 10% bonus for one week early is available for the basic assignment. 
+Deadline: 8:00am, Monday, June 2th, Week 13</H3>
+<H3>The extra 5% bonus for a submitted, working assignment within 48 hours of 
+release, is also available for the basic assignment. Deadline: Midnight, Friday 
+May 23rd </H3><EM>See course intro for exact details. Note the demonstration 
+requirement.</EM> 
+<H3>Up to a 20% bonus is available for the advanced part of the 
+assignment</H3>To attempt the advanced part, you must finish the standard 
+assignment at least one week early, and get permission from <A 
+href="mailto:kevine@cse.unsw.edu.au">Kevin</A>. 
+<P>Any bonus awarded for the advanced part can be used to make up for lost marks 
+in any class mark component of the course. 
+<H2>Introduction</H2>In this assignment, you will extend OS/161's native file 
+system (SFS) to support large files and block accounting. If you attempt the 
+advanced part of the assignment, you will add support for subdirectories, thus 
+enabling a hierarchical naming system. If this is not enough, you can add a 
+buffer cache to OS/161 to improve performance. 
+<H2>Code walk-through </H2>Bring your answers to the code walk-through questions 
+to your week 12 tutorial. The OS/161 sfs file system we provide is very simple. 
+The implementation resides in the fs/sfs directory. The fs/vfs directory 
+provides the infrastructure to support multiple file systems. 
+<H3>kern/include</H3>You should examine the files fs.h, vfs.h, vnode.h, and 
+sfs.h. 
+<P><EM>1. What is the difference between VOP_ routines and FSOP_ routines?</EM> 
+<H3>kern/fs/vfs </H3>
+<H4>device.c</H4>This implements raw device support. 
+<P><EM>2. What vnode operations are permitted on devices?</EM> 
+<H4>devnull.c </H4>This implements the OS/161 equivalent of /dev/null, null:. 
+<H4>vfscwd.c </H4>This implements current working directory support. 
+<P><EM>3. Why is VOP_INCREF called in vfs_getcurdir?</EM> 
+<H4>vfslist.c</H4>This implements operations on the entire set of file systems. 
+<P><EM>4. How do items get added to the vfslist?</EM> 
+<H4>vfslookup.c</H4>Name translation operations. 
+<H4>vfspath.c</H4>Operations on path names; implements the vfs operations. 
+<H4>vnode.c</H4>Initialization and reference count management. 
+<H3>kern/fs/sfs</H3>
+<H4>sfs_fs.c</H4>File system routines. 
+<P><EM>5. There is no buffer cache currently in sfs. However, the bitmaps and 
+superblock are not written to disk on every modification. How is this 
+possible?</EM> 
+<P><EM>6. What do the statements in Question 5 mean about the integrity of your 
+file system after a crash?</EM> 
+<P><EM>7. Can you unmount a file system on which you have open files?</EM> 
+<P><EM>8. List 3 reasons why a mount might fail.</EM> 
+<H4>sfs_io.c</H4>Block I/O routines 
+<H4>sfs_vnode.c</H4>File routines 
+<P><EM>9. Why is a routine like sfs_partialio necessary? Why is this currently a 
+performance problem? What part of this assignment will make it less of one.</EM> 
+
+<P><EM>10. What is the sfs_bmap routine used for?</EM> 
+<H3>sbin/mksfs</H3>Implements the mksfs utility which creates an sfs file system 
+on a device. 
+<H4>disk.h/disk.c</H4>Defines what the disk looks like. 
+<H4>mksfs.c</H4>
+<P><EM>11. What is the inode number of the root?</EM> 
+<H2>Setting Up Assignment 3</H2>
+<P>Follow these directions carefully!!!!! Make sure you have plenty of disk 
+quota available before you start. 
+<P>Download the following patch from the class web site (<A 
+href="http://www.cse.unsw.edu.au/~cs3231/assigns/os161/ass3/ass3-start.patch">ass3-start.patch</A>) 
+and save it in your home directory. 
+<P>We will now create a branch in your cvs repository to work on this 
+assignment. <B>Make sure you get the following command correct</B>. <PRE>% cvs rtag -r os161-base -b ass3 src
+</PRE>
+<P>The previous cvs command creates a branch in CVS called <TT>ass3</TT>. Remove 
+the <TT>src</TT> from the previous assignment (you will have a copy committed in 
+your repository), and checkout a copy of this assignment to work on. <PRE>% cd ~/cs3231
+% rm -rf src
+% cvs checkout -r ass3 src
+</PRE>Note that if in the future you wish to checkout the latest (most recently 
+committed) version of your sources to this assignment, you can use the above 
+command again. If you do, take care not to do it over the top of an existing 
+tree. 
+<P>We will now <EM>patch</EM> your checked out tree to make the changes you need 
+to do this assignment. <PRE>% cd ~/cs3231/src
+% patch -p1 &lt; ~/ass3-start.patch
+patching file kern/arch/mips/mips/syscall.c
+patching file kern/conf/ASST3
+patching file kern/conf/conf.kern
+patching file kern/include/file.h
+patching file kern/include/synch.h
+patching file kern/include/syscall.h
+patching file kern/include/thread.h
+patching file kern/include/version.h
+patching file kern/main/main.c
+patching file kern/main/menu.c
+patching file kern/thread/synch.c
+patching file kern/thread/thread.c
+patching file kern/userprog/file.c
+patching file kern/userprog/runprogram.c
+patching file lib/hostcompat/time.c
+patching file lib/libc/exit.c
+patching file sbin/dumpsfs/dependh.mk
+patching file sbin/mksfs/dependh.mk
+patching file testbin/Makefile
+patching file testbin/asst2/Makefile
+patching file testbin/asst2/asst2.c
+patching file testbin/asst2/depend.mk
+patching file testbin/asst3/Makefile
+patching file testbin/asst3/asst3.c
+patching file testbin/asst3/depend.mk
+patching file testbin/hash/dependh.mk
+%
+</PRE>Now we will tell cvs to add some files and directories from this version 
+of the sources. <PRE>% cd ~/cs3231/src
+% cvs add kern/include/file.h kern/userprog/file.c testbin/asst2 testbin/asst3
+% cd testbin/asst2
+% cvs add Makefile asst2.c depend.mk
+% cd ../asst3
+% cvs add Makefile asst3.c depend.mk
+</PRE>We will now check how successful your update of the sources has been. Run 
+the following command and check to see its output matches that below. <PRE>% cd ~/cs3231/src
+% cvs -q -n update
+M kern/arch/mips/mips/syscall.c
+M kern/conf/ASST3
+M kern/conf/conf.kern
+A kern/include/file.h
+M kern/include/synch.h
+M kern/include/syscall.h
+M kern/include/thread.h
+M kern/include/version.h
+M kern/main/main.c
+M kern/main/menu.c
+M kern/thread/synch.c
+M kern/thread/thread.c
+A kern/userprog/file.c
+M kern/userprog/runprogram.c
+M lib/hostcompat/time.c
+M lib/libc/exit.c
+M sbin/dumpsfs/dependh.mk
+M sbin/mksfs/dependh.mk
+M testbin/Makefile
+A testbin/asst2/Makefile
+A testbin/asst2/asst2.c
+A testbin/asst2/depend.mk
+A testbin/asst3/Makefile
+A testbin/asst3/asst3.c
+A testbin/asst3/depend.mk
+M testbin/hash/dependh.mk
+%
+</PRE>You will notice we have added (A) eight files, and modified (M) 18 others. 
+
+<P>Now commit these changes to the repository, and tag them as ass3-start. Note 
+you will have to enter a log message during the commit. <PRE>% cd ~/cs3231/src
+% cvs commit 
+% cvs tag ass3-start
+</PRE>You are now ready to start the assignment. 
+<P>Note: We have included our own version of the synchronisation primitives you 
+wrote in Assignment 1 and a simple implementation of the syscalls <TT>open(), 
+close(), read(), write(), lseek()</TT>. You can use your own if you wish, but 
+make sure that whatever base you start with is "rock solid". 
+<H3>Building and Testing Your Assignment</H3>
+<H4>Configure OS/161 for Assignment 3</H4>
+<P>Before proceeding further, configure your new sources. <PRE>% cd ~/cs3231/src
+% ./configure
+</PRE>
+<P>Unlike previous the previous assignment, you will need to build and install 
+the user-level programs that will be run by your kernel in this assignment. <PRE>% cd ~/cs3231/src
+% make
+</PRE>Note: "make" in this directory does both "make" and "make install". 
+<P>For your kernel development, again we have provided you with a framework for 
+you to run your solutions for ASST3. 
+<P>You have to reconfigure your kernel before you can use this framework. The 
+procedure for configuring a kernel is the same as in ASST0, ASST1, etc, except 
+you will use the ASST3 configuration file: <PRE>% cd ~/cs3231/src/kern/conf	
+% ./config ASST3
+</PRE>You should now see an ASST3 directory in the compile directory. 
+<H4>Building for ASST3</H4>When you built OS/161 for ASST1, you ran make from 
+compile/ASST1 . In ASST3, you run make from (you guessed it) compile/ASST3. <PRE>% cd ../compile/ASST3
+% make depend
+% make
+% make install
+</PRE>If you are told that the compile/ASST3 directory does not exist, make sure 
+you ran config for ASST3. 
+<H4>Command Line Arguments to OS/161</H4>Your solutions to ASST3 will be tested 
+by running OS/161 with command line arguments that correspond to the menu 
+options in the OS/161 boot menu. 
+<P><B>IMPORTANT: Please DO NOT change these menu option strings!</B> 
+<H4>Running "asst3"</H4>For this assignment, we have supplied a user-level 
+OS/161 program that you can use for testing. It is called <TT>asst3</TT>, and 
+its sources live in <TT>src/testbin/asst3</TT>. 
+<P>You can test your assignment by typing <TT>p /testbin/asst3</TT> at the 
+OS/161 menu prompt. <B>Note: On cygwin, you need to type <TT>p 
+/testbin/asst3.exe</TT></B> 
+<P>Running the program produces output similar to the following prior to 
+starting the assignment. <B>You must configure sys161, and format and mount your 
+disk first</B> (see below). <PRE>************************************************************
+* Asst3 Tester
+************************************************************
+* Testing first file system block (pos 0)
+************************************************************
+opening file "lhd0:testfile"
+open() got fd 3
+
+lseeking pos 0
+
+writing test string at pos 0
+wrote 45 bytes
+
+lseek to pos 0
+
+reading 45 bytes into buffer
+attempting read of 45 bytes
+read 45 bytes
+reading complete
+
+file content okay
+Unknown syscall 16
+ERROR testing file: No such system call
+Unknown syscall 0
+</PRE><TT>asst3</TT> produces the following output on a (maybe partially) 
+working assignment. <PRE> 
+************************************************************
+* Asst3 Tester
+************************************************************
+* Testing first file system block (pos 0)
+************************************************************
+opening file "lhd0:testfile"
+open() got fd 3
+
+lseeking pos 0
+
+writing test string at pos 0
+wrote 45 bytes
+
+lseek to pos 0
+
+reading 45 bytes into buffer
+attempting read of 45 bytes
+read 45 bytes
+reading complete
+
+file content okay
+file stats: size: 45 blocks: 1
+************************************************************
+* Testing file system indirect block (pos 7680)
+************************************************************
+opening file "lhd0:testfile"
+open() got fd 3
+
+lseeking pos 7680
+
+writing test string at pos 7680
+wrote 46 bytes
+
+lseek to pos 7680
+
+reading 46 bytes into buffer
+attempting read of 46 bytes
+read 46 bytes
+reading complete
+
+file content okay
+file stats: size: 7726 blocks: 3
+************************************************************
+* Testing file system double indirect block (pos 73216)
+************************************************************
+opening file "lhd0:testfile"
+open() got fd 3
+
+lseeking pos 73216
+
+writing test string at pos 73216
+wrote 45 bytes
+
+lseek to pos 73216
+
+reading 45 bytes into buffer
+attempting read of 45 bytes
+read 45 bytes
+reading complete
+
+file content okay
+file stats: size: 73261 blocks: 6
+************************************************************
+* Testing last double indirect block (pos 8461312)
+************************************************************
+opening file "lhd0:testfile"
+open() got fd 3
+
+lseeking pos 8461312
+
+writing test string at pos 8461312
+wrote 46 bytes
+
+lseek to pos 8461312
+
+reading 46 bytes into buffer
+attempting read of 46 bytes
+read 46 bytes
+reading complete
+
+file content okay
+file stats: size: 8461358 blocks: 8
+************************************************************
+* Testing file system beyond max file size (pos 1082203648)
+************************************************************
+opening file "lhd0:testfile"
+open() got fd 3
+
+lseeking pos 1082203648
+
+writing test string at pos 1082203648
+wrote -1 bytes
+EXPECTED ERROR testing file:Invalid argument
+************************************************************
+Sync()'ing files and finished!!!
+************************************************************
+Unknown syscall 0
+</PRE>
+<H3>Configuring System/161</H3>You may need to have configured System/161 to 
+have at least one disk to test your file system on. The following should be 
+sufficient in your <TT>~/cs3231/root/sys161.conf</TT>. <PRE>2	disk	rpm=7200	sectors=2048	file=DISK1.img
+#3	disk	rpm=7200	sectors=2048	file=DISK2.img
+</PRE>These disk images are created if they don't exist on System/161 startup. 
+<P>You can also increase the amount of RAM in System/161, if you need it. <PRE>31	busctl	ramsize=4194304
+</PRE>
+<H3>Formatting and Using Your SFS Disks</H3>Before using SFS, you need to format 
+the disk on which you are going to mount the file system. This should be done on 
+your host system. The following examples illustrate how to format lhd0 
+(DISK1.img). 
+<P>In your cs3231/root directory:</P><PRE>host% hostbin/host-mksfs DISK1.img my-vol-name
+</PRE>The next time you run OS/161, you can mount SFS on the formatted disk 
+device (lhd0 in this example) from the OS161 command menu: <PRE>OS/161 kernel [? for menu]: mount sfs lhd0
+vfs: Mounted my-vol-name: on lhd0
+</PRE>Once mounted, you can then read and write files on the file system by 
+specifying the mounted device in the pathname of the open call. <PRE>open("lhd0:newfile", O_RDWR | O_CREAT);
+</PRE>
+<H2>Basic Assignment </H2>The following sections outline what you must do for 
+the basic assignment. 
+<H3>Add support for the <TT>fstat</TT> and <TT>sync</TT> system calls</H3>The 
+<TT>fstat</TT> system call is applied to a valid file descriptor, and the 
+following information is returned about the file. <PRE>struct stat {
+	u_int32_t st_mode;	/* protection mode and file type */
+	u_int32_t st_nlink;	/* number of hard links */
+	off_t st_size;		/* file size (bytes) */
+	u_int32_t st_blocks;	/* number of blocks file is using */
+};
+</PRE>You must provide the in-kernel implementation of <TT>fstat</TT> (and 
+<TT>sync</TT> that works for all present (and future) vfs-based file systems. 
+<P>Additionally, SFS currently only supports st_mode and st_size. You must add 
+support for st_blocks within SFS. st_blocks contains the number of disk blocks 
+consumed by the file on disk. 
+<P>Notes: 
+<UL>
+  <LI>You can ignore the block used by the inode on disk in your block 
+  accounting scheme. 
+  <LI>You do not need to support sfs_truncate for the basic assignment, and as 
+  such, your block accounting will not have to handle the case where files are 
+  deleted or decrease in size. 
+  <LI>The number of blocks consumed must obviously be persistent, and hence you 
+  will need to modify the on-disk inode structure to store st_blocks. </LI></UL>
+<H3>Adding Support for Large Files</H3>SFS only supports medium sized, 
+potentially sparse, files using a scheme very similar to the UNIX inode scheme 
+covered in lectures. SFS only supports <EM>direct</EM> block pointers and 
+<EM>single indirect</EM> block pointers. Thus the largest file currently 
+supported by SFS is (15 + 128) * 512 = 71.5 Kbytes. 
+<P>You must extend SFS to support files up to 1082203648 bytes (1+ Gigabytes) by 
+adding support for <EM>double indirect</EM> and <EM>triple indirect</EM> blocks 
+on disk. Note that we can actually test creating files of maximum size on our 
+small test disk by using lseek to write to specific locations within the file, 
+thus creating a sparsely populated file. 
+<P>For additional background, consult one or more of the following texts for 
+details how similar existing operating systems structure their file system 
+management: 
+<UL>
+  <LI>Section 6.4.5 and Section 10.6.3, Tannenbaum, <EM>Modern Operating Systems 
+  </EM>. 
+  <LI>Chapter 9, Vahalia, <EM>Unix Internals: the new frontiers</EM>. </LI></UL>
+<H2>Basic Assignment Submission </H2>As with assignment 0, you again will be 
+submitting a diff of your changes to the original tree. 
+<P>You should first commit your changes back to the repository using the 
+following command. Make sure you <TT>cvs add</TT> any new files you added to 
+your kernel. Note: You will have to supply a comment on your changes. <PRE>% cd ~/cs3231/src
+% cvs commit
+</PRE>
+<P>Now tag the repository so that you can always retrieve your current version 
+in the future. <PRE>% cd ~/cs3231/src
+% cvs tag ass3-finish
+</PRE>
+<P>Now generate a file containing the diff. <PRE>% cvs -q rdiff -r os161-base -r ass3-finish -u src &gt; ~/ass3.diff
+</PRE>To check your diff file, see the <A 
+href="http://www.cse.unsw.edu.au/~cs3231/doc/subcheck.shtml">Assignment 
+Submission Guidelines</A> 
+<H3>Submitting Your Assignment</H3>Now submit the diff as your assignment. <PRE>% cd ~
+% give cs3231 ass3 ass3.diff
+</PRE>You're now done. <B>Note: If you wish to re-submit your assignment, you 
+will have to re-tag the final version with a new, unique, tag (e.g. 
+ass3-finish-2), and generate a new diff against this new tag.</B> 
+<H2>Advanced Assignment </H2>The advanced assignment is to complete the basic 
+assignment, plus the following. Note: To get the available 20%, it is not 
+expected that everything that follows be implemented. The 20% is available to 
+those that implement a <EM>substantial subset</EM> of the following. 
+<H3>Setting Up Advanced Assignment 3</H3>
+<P>Given your doing the advanced version of the assignment, I'm assuming your 
+competent with managing your CVS repository and don't need simple directions. 
+<P>Basically, at the end of the assignment you will need to generate a 
+<TT>rdiff</TT> between your final version and os161-base. It is up to you how 
+you get there. Two obvious options are: continue developing along your ass3 
+branch, or create a new branch from where you finished the basic part of ass2. 
+<B>Warning: don't submit a cvs diff!</B> Only submit a <B>cvs rdiff</B> as 
+<TT>cvs diff</TT> generates broken patches. 
+<P>An example branch <PRE>% cvs rtag -r ass3-finished  -b ass3_adv src
+</PRE>
+<H3>Adding support for hierarchical directories</H3>As supplied, SFS has support 
+for various aspects of directories in that it supports a single directory at the 
+root of the mounted file system. See the function table <TT>sfs_dirops</TT> for 
+a list of supported directory operations. You should add support for the 
+following system calls for vfs file systems in general, and if required, add the 
+underlying support for the operations in SFS itself. 
+<UL>
+  <LI>mkdir, rmdir, getdirentry </LI></UL>Some things you will have to consider 
+when adding hierarchical naming to SFS. 
+<UL>
+  <LI>If a file or directory is expected to exist by the semantics of a call, 
+  and it does not, the resulting error code should be ENOENT. 
+  <LI>If a file is encountered where a directory was expected, the resulting 
+  error code should be ENOTDIR. 
+  <LI>If a directory is encountered where a file was expected, the resulting 
+  error code should be EISDIR. 
+  <LI>If an operation cannot be completed because the disk is full, the 
+  resulting error code should be ENOSPC. 
+  <LI>If removal of a non-empty directory is attempted, the resulting error code 
+  should be ENOTEMPTY. 
+  <LI>As in assignment 2, when an invalid file handle is used, the resulting 
+  error code should be EBADF. 
+  <LI>If an attempt is made to operate in a prohibited manner upon '.' or '..', 
+  the resulting error code should be EINVAL. 
+  <LI>If an attempt is made to rename a directory into one of its 
+  subdirectories, the resulting error code should be EINVAL. </LI></UL>Your code 
+should do the following: 
+<UL>
+  <LI>If there is a file or directory in the top level directory named foo, 
+  accept an open request for foo (the leading '/' will be removed by the vfs 
+  layer). 
+  <LI>If there is a directory in the top level directory named skippy and a file 
+  in that directory named crunchy accept an open, create, or remove request for 
+  skippy/crunchy (see comment above about leading '/' characters). 
+  <LI>If there is no directory in the top level directory named smuckers it 
+  should disallow the creation, open, or remove of a file named smuckers/grape. 
+  <LI>Allow removal of an empty directory; disallow removal of a non-empty 
+  directory. 
+  <LI>Accept a directory name that ends in a / (though directory names that do 
+  not end up in / are OK as well.) </LI></UL>Your code must not do the following: 
+<UL>
+  <LI>Assume that the user wants all the missing directories created 
+  automatically when presented with a pathname that doesn’t exist, on a create. 
+  For example, if there is a directory named /bim/ska/la and I mistakenly try to 
+  create a file named /bum/ska/la/bim, I don’t want SFS to create the 
+  directories /bum, /bum/ska, and /bum/ska/la so that it can create bim. It 
+  should return an error. </LI></UL>
+<H3>Add support for renaming and deleting files</H3>Implement the 
+<TT>rename</TT> and <TT>remove</TT> system calls, and the underlying sfs 
+implementation. 
+<H3>File System Synchronisation </H3>If you implemented fork and wrote a shell 
+for assignment two, you can include your implementation in the advanced part of 
+this assignment and do the following. 
+<UL>
+  <LI>Use the user-level utilities in <TT>bin</TT> to test your assignment by 
+  invoking them in your shell. 
+  <LI>Potentially have concurrent access to the file system, which is NOT 
+  currently handled by SFS. </LI></UL>SFS does not currently protect itself from 
+concurrent access by multiple threads. For example, because there is no 
+synchronization on the free block bitmap, two threads, creating files, could 
+both decide to use the same free sector. Your mission is to bullet-proof the 
+filesystem so that two threads can use the filesystem harmoniously. You must 
+allow multiple threads to have the same file open. When this is the case, your 
+filesystem needs to implement Unix filesystem semantics. 
+<UL>
+  <LI>Atomic Writes: file writes are atomic. If one thread has a file open for 
+  writing, and a second has the same file open for reading, the second thread 
+  will always be presented with a consistent view of the file with respect to 
+  each write system call. On each read, returned data will be considered the 
+  state of the file before a write system call started, or after the write 
+  system call ended, but not what it looked like during the write. 
+  <LI>Removal: if a thread has a file open, a remove of that file eliminates the 
+  name in the directory immediately, but postpones actual removal of the file’s 
+  contents until the file is closed by all threads that have it open (however, 
+  since the name is removed fromthe directory, no other opens of the file will 
+  succeed). In addition, you should guarantee that the removal of a directory 
+  that is the current working directory (CWD) of some process does not cause a 
+  process (or our operating system) to crash. You may choose to disallow the 
+  removal or you may remove it and handle the process whose CWD was removed very 
+  carefully. In UNIX, the removal succeeds, however, subsequent accesses to '.' 
+  or '..' can fail for the that had the directory as its CWD. 
+  <LI>Atomic Create: If two threads attempt to create a file of the same name at 
+  the same time, specifying O_CREAT | O_EXCL, one should succeed, and the other 
+  should fail. 
+  <LI>Synchronous Directory Operations: If your system crashes after any of the 
+  following operations return, the disk should be left in a state reflecting 
+  that the call completed: create, remove, mkdir, rmdir. </LI></UL>An example of 
+atomic write: if thread A performs a syscall to write 512 bytes to file F 
+starting at location 0, and at the same time, thread B performs a syscall to 
+read 256 bytes of file F starting at location 128, thread B is guaranteed that 
+it will get 256 bytes of the file either before thread A’s write takes place, or 
+after thread A’s write took place. It will never get back some bytes from F from 
+before thread A’s write started and some from after thread A’s write ends. 
+<P>An example of removal: thread C has file F open (it doesn’t matter whether 
+it’s for reading or writing). Thread D performs an unlink syscall on file F. 
+Thread C (and file F) are not affected by the unlink. When thread C closes file 
+F, it is then deleted. 
+<P>Be careful to return appropriate error codes from calls to file-related 
+methods in the file system! The syscalls you implemented in assignment 2 rely on 
+these values to operate correctly! 
+<H3>Add a Buffer Cache </H3>You will find that the performance of SFS is not 
+great. In particular, there is no buffer cache. You should add a buffer cache to 
+OS/161. You will need to decide what data structures you need to implement this 
+and what interface routines you will use. Figure out exactly where the buffer 
+cache will interface with the rest of the system, and how you will maintain the 
+integrity of your file system in the face of caching. You should have a clear 
+design of your interface and data structures, your replacement algorithms, and 
+any extra precautions you take to ensure the integrity of the file system. Also, 
+consider any additional support necessary to make sure that buffered data 
+eventually gets written to disk. 
+<H2>Advanced Assignment Submission </H2>
+<P>Commit your changes and tag them with ass3_adv-finish, or the like. 
+<P>Now generate a file containing the diff. <PRE>% cvs -q rdiff -r os161-base -r ass3_adv-finish -u src &gt; ~/ass3_adv.diff
+</PRE>To check your diff file, see the <A 
+href="http://www.cse.unsw.edu.au/~cs3231/doc/subcheck.shtml">Assignment 
+Submission Guidelines</A> 
+<H3>Submitting Your Assignment</H3>Now submit the diff as your assignment. Be 
+careful to submit the <B>ass3_adv</B> assignment, and not accidently re-submit 
+over your basic assignment submission. <PRE>% cd ~
+% give cs3231 ass3_adv ass3_adv.diff
+</PRE>You're now done. 
+<P class=modified>Page last modified: 1:35 pm 21 May 2003</P>
+<P><A 
+href="http://www.cse.unsw.edu.au/~cs3231/assigns/os161/ass3/index.shtml">Screen 
+Version</A></P></BODY></HTML>

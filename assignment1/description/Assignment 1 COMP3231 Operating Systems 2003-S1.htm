@@ -1,0 +1,499 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<!-- saved from url=(0071)http://www.cse.unsw.edu.au/~cs3231/assigns/os161/ass1/index.shtml?print -->
+<HTML><HEAD><TITLE>Assignment 1 COMP3231 Operating Systems 2003/S1</TITLE><LINK 
+title=OS href="Assignment 1 COMP3231 Operating Systems 2003-S1_files/.style.css" 
+type=text/css rel=stylesheet>
+<META http-equiv=Content-Type content="text/html; charset=iso-8859-1">
+<META 
+content="course University New South Wales UNSW&#10;      Computer Science Engineering" 
+name=Keywords>
+<META content="Kevin Elphinstone &amp; Cameron Stone" name=Author>
+<META content=document name=resource-type>
+<META content=en name=language>
+<META 
+content="COMP3231 Introductory level operating systems&#10;      course (third year)" 
+name=Description>
+<META content=document name=resource-type>
+<META content=en name=language>
+<META content="MSHTML 6.00.2800.1170" name=GENERATOR></HEAD>
+<BODY>
+<H2 align=center><FONT color=navy>Assignment 1: Synchronisation</FONT></H2>
+<H2>Due Date: Midnight, Sunday 13th April</H2>
+<H3>Worth 25 marks (of the 100 available for the class mark component of the 
+course)</H3>
+<H3>The 10% bonus for one week early applies</H3>
+<H3>The extra 5% bonus for a submitted, working assignment within 48 hours of 
+release, also applies </H3><EM>See course intro for exact details. The notional 
+release time is midnight, Thursday, 27th March </EM>
+<H3>Introduction</H3>
+<P>In this assignment you will implement a synchronisation primitive for OS/161 
+and learn how to use various primitives to solve several synchronisation 
+problems. Once you have completed the reading and programming exercises you 
+should have a fairly solid grasp of the pitfalls of concurrent programming and, 
+more importantly, how to avoid those pitfalls in the code you will write later 
+this semester. 
+<P>To complete this assignment you will need to be familiar with the OS/161 
+thread code. The thread system provides interrupts, control functions, and 
+semaphores. You will implement locks. 
+<P>As with the previous assignment, the reading component is not assessable, and 
+will be discussed in the tutorials in week 5. 
+<H3>Write Readable Code</H3>In your programming assignments, you are expected to 
+write well-documented, readable code. There are a variety of reasons to strive 
+for clear and readable code. Code that is understandable to others is a 
+requirement for any real-world programmer, not to mention the fact that after 
+enough time, you will be in the shoes of one of the <EM>others</EM> when 
+attempting to understand what you wrote in the past. Finally, clear, concise, 
+well-commented code makes it easier for the assignment marker to award you 
+marks! (This is especially important if you can't get the assignment running. If 
+you can't figure out what is going on, how do you expect us to). 
+<P>There is no single right way to organise and document your code. It is not 
+our intent to dictate a particular coding style for this class. The best way to 
+learn about writing readable code is to read other people's code. Read the 
+OS/161 code, or read the source code of some freely available operating system. 
+When you read someone else's code, note what you like and what you don't like. 
+Pay close attention to the lines of comments which most clearly and efficiently 
+explain what is going on. When you write code yourself, keep these observations 
+in mind. 
+<P>Here are some general tips for writing better code: 
+<UL>
+  <LI>Group related items together, whether they are variable declarations, 
+  lines of code, or functions. 
+  <LI>Use descriptive names for variables and procedures. Be consistent with 
+  this throughout the program. 
+  <LI>Comments should describe the programmer's intent, not the actual mechanics 
+  of the code. A comment which says "Find a free disk block" is much more 
+  informative than one that says "Find first non-zero element of array." 
+</LI></UL>
+<H3>Some more practice with CVS</H3>
+<P>At the end of the previous assignment, you would have committed the changes 
+you made to the CVS repository and tagged as <TT>ass0-final</TT>. 
+<P>You may have made some changes to the sources since then. To check this you 
+can use the following command</P><PRE>% cd ~/cs3231/src
+% cvs -q -n update
+M kern/main/main.c
+%
+</PRE>
+<P>A short note on the arguments to cvs: 
+<UL>
+  <LI><B>-q</B> means "be quiet". Don't show the directories cvs traverses while 
+  it works. 
+  <LI><B>-n</B> means "no action". It means go through the motions of performing 
+  the command, <EM>but don't actually change anything</EM>. -n is a great way to 
+  test something you might want to do, but that you are not sure of the 
+  consequences of. 
+  <LI><B>update</B> requests cvs to update your version of the sources with the 
+  latest version in your repository. </LI></UL>
+<P>Note that in our example, we have modified (M) the kern/main/main.c file 
+since the last commit. The output above might be different for you. It may be 
+empty, in which case you have not made any changes since ass0 finished. 
+<P>If you have made changes, decide whether you wish to keep them to play around 
+with later, or whether you simply wish to throw them away. If you wish to keep 
+them, you should commit your changes back to the repository using <TT>cvs 
+commit</TT>. 
+<P>Now remove your <TT>src</TT> tree to prepare for this assignment (yes 
+really). <PRE>% cd ~/cs3231
+% rm -rf src
+</PRE>Note you can get your original tree back at anytime by running <TT>cvs 
+checkout src</TT>. Feel free to test this if you wish, but make sure you remove 
+it again before proceeding further. 
+<H3>Setting Up Assignment 1</H3>
+<P>Follow these directions carefully!!!!! Make sure you have plenty of disk 
+quota available before you start. 
+<P>Download the following patch from the class web site (<A 
+href="http://www.cse.unsw.edu.au/~cs3231/assigns/os161/ass1/ass1-start.patch">ass1-start.patch</A>) 
+and save it in your home directory. 
+<P>We will now create a branch in your cvs repository to work on this 
+assignment. <B>Make sure you get the following command correct</B>. <PRE>% cvs rtag -r os161-base -b ass1 src
+</PRE>
+<P>This creates a branch in CVS called <TT>ass1</TT>. To checkout a copy of this 
+assignment to work on now do the following. <PRE>% cd ~/cs3231
+% cvs checkout -r ass1 src
+</PRE>Note that if in the future you wish to checkout the latest (most recently 
+committed) version of your sources to this assignment, you can use the above 
+command again. If you do, take care not to do it over the top of an existing 
+tree. 
+<P>We will now <EM>patch</EM> your checked out tree to make the changes you need 
+to do this assignment. <PRE>% cd ~/cs3231/src
+% patch -E -p1 &lt; ~/ass1-start.patch
+patching file kern/asst1/bar.c
+patching file kern/asst1/bar.h
+patching file kern/asst1/bar_driver.c
+patching file kern/asst1/catlock.c
+patching file kern/asst1/catsem.c
+patching file kern/asst1/stoplight.c
+patching file kern/asst1/test.h
+patching file kern/conf/conf.kern
+patching file kern/include/synch.h
+patching file kern/include/test.h
+patching file kern/include/thread.h
+patching file kern/include/version.h
+patching file kern/main/menu.c
+patching file kern/thread/synch.c
+patching file kern/thread/thread.c
+patching file lib/hostcompat/time.c
+patching file lib/libc/exit.c
+%
+</PRE>Now we will tell cvs to add and remove some files from this version of the 
+sources. <PRE>% cd ~/cs3231/src/kern/asst1
+% cvs add bar.c bar.h bar_driver.c test.h
+% cvs remove catlock.c catsem.c stoplight.c
+</PRE>We will now check how successful your update of the sources has been. Run 
+the following command and check to see its output matches that below. <PRE>% cd ~/cs3231/src
+% cvs -q -n update
+A kern/asst1/bar.c
+A kern/asst1/bar.h
+A kern/asst1/bar_driver.c
+R kern/asst1/catlock.c
+R kern/asst1/catsem.c
+R kern/asst1/stoplight.c
+A kern/asst1/test.h
+M kern/conf/conf.kern
+M kern/include/synch.h
+M kern/include/test.h
+M kern/include/thread.h
+M kern/include/version.h
+M kern/main/menu.c
+M kern/thread/synch.c
+M kern/thread/thread.c
+M lib/hostcompat/time.c
+M lib/libc/exit.c
+%
+</PRE>You will notice we have added (A) four files, removed (R) three files, and 
+modified (M) ten others. 
+<P>Now commit these changes to the repository, and tag them as ass1-start. Note 
+you will have to enter a log message during the commit. <PRE>% cd ~/cs3231/src
+% cvs commit 
+% cvs tag ass1-start
+</PRE>You are now ready to start the assignment. 
+<H3>Begin Your Assignment</H3>
+<H4>Configure OS/161 for Assignment 1</H4>
+<P>Before proceeding further, configure your new sources. <PRE>% cd ~/cs3231/src
+% ./configure
+</PRE>
+<P>We have provided you with a framework to run your solutions for ASST1. This 
+framework consists of driver code (found in kern/asst1 ) and menu items you can 
+use to execute your solutions from the OS/161 kernel boot menu. 
+<P>You have to reconfigure your kernel before you can use this framework. The 
+procedure for configuring a kernel is the same as in ASST0, except you will use 
+the ASST1 configuration file: <PRE>% cd ~/cs3231/src/kern/conf	
+% ./config ASST1
+</PRE>You should now see an ASST1 directory in the compile directory. 
+<H4>Building for ASST1</H4>When you built OS/161 for ASST0, you ran make from 
+compile/ASST0 . In ASST1, you run make from (you guessed it) compile/ASST1 . <PRE>% cd ../compile/ASST1
+% make depend
+% make
+</PRE>If you are told that the compile/ASST1 directory does not exist, make sure 
+you ran config for ASST1. 
+<H4>Command Line Arguments to OS/161</H4>Your solutions to ASST1 will be tested 
+by running OS/161 with command line arguments that correspond to the menu 
+options in the OS/161 boot menu. 
+<P><B>IMPORTANT: Please DO NOT change these menu option strings!</B> 
+<H4>"Physical" Memory</H4><B>HEADS UP!!!! Make sure you do the following</B> 
+Failing to do so will potentially lead to subtle problems that will be very 
+difficult to diagnose. 
+<P>In order to execute the tests in this assignment, you will need more than the 
+512 KB of memory configured into System/161 by default. We suggest that you 
+allocate at least 2MB of RAM to System/161. This configuration option is passed 
+to the busctl device with the ramsize parameter in your 
+<TT>~/cs3231/root/sys161.conf</TT> file. Make sure the busctl device line looks 
+like the following: <PRE>31 busctl ramsize=2097152 
+</PRE>Note: 2097152 bytes is 2MB. 
+<H3>Concurrent Programming with OS/161</H3>If your code is properly 
+synchronised, the timing of context switches and the order in which threads run 
+should not change the behaviour of your solution. Of course, your threads may 
+print messages in different orders, but you should be able to easily verify that 
+they follow all of the constraints applied to them and that they do not 
+deadlock. 
+<H4>Built-in thread tests</H4>When you booted OS/161 in ASST0, you may have seen 
+the options to run the thread tests. The thread test code uses the semaphore 
+synchronisation primitive. You should trace the execution of one of these thread 
+tests in GDB to see how the scheduler acts, how threads are created, and what 
+exactly happens in a context switch. You should be able to step through a call 
+to mi_switch() and see exactly where the current thread changes. 
+<P>Thread test 1 ( " tt1 " at the prompt or tt1 on the kernel command line) 
+prints the numbers 0 through 7 each time each thread loops. Thread test 2 (" tt2 
+") prints only when each thread starts and exits. The latter is intended to show 
+that the scheduler doesn't cause starvation--the threads should all start 
+together, spin for awhile, and then end together. 
+<H4>Debugging concurrent programs</H4><TT>thread_yield()</TT> is automatically 
+called for you at intervals that vary randomly. While this randomness is fairly 
+close to reality, it complicates the process of debugging your concurrent 
+programs. 
+<P>The random number generator used to vary the time between these 
+<TT>thread_yield()</TT> calls uses the same seed as the random device in 
+System/161. This means that you can reproduce a specific execution sequence by 
+using a fixed seed for the random number generator. You can pass an explicit 
+seed into random device by editing the "random" line in your sys161.conf file. 
+For example, to set the seed to 1, you would edit the line to look like: <PRE>	28 random seed=1 
+</PRE>We recommend that while you are writing and debugging your solutions you 
+pick a seed and use it consistently. Once you are confident that your threads do 
+what they are supposed to do, set the random device to autoseed. This should 
+allow you to test your solutions under varying conditions and may expose 
+scenarios that you had not anticipated. 
+<H3>Tutorial Exercises</H3>Please answer the following questions and bring them 
+to your tutorial in week 5. These tutorial questions are not part of the 
+assessable component of this assignment. 
+<H4>Code reading </H4>To implement synchronisation primitives, you will have to 
+understand the operation of the threading system in OS/161. It may also help you 
+to look at the provided implementation of semaphores. When you are writing 
+solution code for the synchronisation problems it will help if you also 
+understand exactly what the OS/161 scheduler does when it dispatches among 
+threads. 
+<H4>Thread Questions</H4>
+<P><I><FONT color=blue>1. What happens to a thread when it exits (i.e., calls 
+thread_exit() )? What about when it sleeps? </FONT></I><BR><I><FONT 
+color=blue>2. What function(s) handle(s) a context switch? 
+</FONT></I><BR><I><FONT color=blue>3. How many thread states are there? What are 
+they? </FONT></I><BR><I><FONT color=blue>4. What does it mean to turn interrupts 
+off? How is this accomplished? Why is it important to turn off interrupts in the 
+thread subsystem code? </FONT></I><BR><I><FONT color=blue>5. What happens when a 
+thread wakes up another thread? How does a sleeping thread get to run again? 
+</FONT></I><BR>
+<H4>Scheduler Questions</H4><I><FONT color=blue>6. What function is responsible 
+for choosing the next thread to run? </FONT></I><BR><I><FONT color=blue>7. How 
+does that function pick the next thread? </FONT></I><BR><I><FONT color=blue>8. 
+What role does the hardware timer play in scheduling? What hardware independent 
+function is called on a timer interrupt? </FONT></I>
+<H4>Synchronisation Questions </H4><I><FONT color=blue>9. Describe how 
+thread_sleep() and thread_wakeup() are used to implement semaphores. What is the 
+purpose of the argument passed to thread_sleep() ? </FONT></I><BR><I><FONT 
+color=blue>10. Why does the lock API in OS/161 provide lock_do_i_hold() , but 
+not lock_get_holder() ? </FONT></I>
+<H4>Synchronisation Problems</H4>The following problems are designed to 
+familiarise you with some of the problems that arise in concurrent programming 
+and help you learn to identify and solve them. 
+<H4>Identify Deadlocks</H4><I><FONT color=blue>1. Here are code samples for two 
+threads that use binary semaphores. Give a sequence of execution and context 
+switches in which these two threads can deadlock. </FONT></I><BR><I><FONT 
+color=blue>2. Propose a change to one or both of them that makes deadlock 
+impossible. What general principle do the original threads violate that causes 
+them to deadlock? </FONT></I><BR><PRE>semaphore *mutex, *data;
+ 
+void me() {
+	P(mutex);
+	/* do something */
+	
+	P(data);
+	/* do something else */
+	
+	V(mutex);
+	
+	/* clean up */
+	V(data);
+}
+ 
+void you() {
+	P(data)
+	P(mutex);
+	
+	/* do something */
+	
+	V(data);
+	V(mutex);
+}
+</PRE>
+<H4>More Deadlock Identification</H4><I><FONT color=blue>3. Here are two more 
+threads. Can they deadlock? If so, give a concurrent execution in which they do 
+and propose a change to one or both that makes them deadlock free.</I></FONT> <PRE>lock *file1, *file2, *mutex;
+ 
+void laurel() {
+	lock_acquire(mutex);
+	/* do something */
+	
+	lock_acquire(file1);
+    	/* write to file 1 */
+ 
+	lock_acquire(file2);
+	/* write to file 2 */
+ 
+	lock_release(file1);
+	lock_release(mutex);
+ 
+	/* do something */
+	
+	lock_acquire(file1);
+ 
+	/* read from file 1 */
+	/* write to file 2 */
+ 
+	lock_release(file2);
+	lock_release(file1);
+}
+ 
+void hardy() {
+    	/* do stuff */
+	
+	lock_acquire(file1);
+	/* read from file 1 */
+ 
+	lock_acquire(file2);
+	/* write to file 2 */
+	
+	lock_release(file1);
+	lock_release(file2);
+ 
+	lock_acquire(mutex);
+	/* do something */
+	lock_acquire(file1);
+	/* write to file 1 */
+	lock_release(file1);
+	lock_release(mutex);
+}
+</PRE>
+<H4>Synchronised Queues</H4><I><FONT color=blue>The thread subsystem in OS/161 
+uses a queue structure to manage some of its state. This queue structure is not 
+synchronised. Why not? Under what circumstances should you use a synchronised 
+queue structure? 
+<P>Describe (and give pseudocode for) a synchronised queue data structure based 
+on the queue structure included in the OS/161 codebase. You may use semaphores, 
+locks, and condition variables as you see fit. You must describe (a proof is not 
+necessary) why your algorithm will not deadlock. 
+<P>Make sure you clearly state your assumptions about the constraints on access 
+to such a structure and how you ensure that these constraints are respected. 
+</I></FONT>
+<H3><FONT color=red>Coding Assignment</FONT></H3>We know: you've been itching to 
+get to the coding. Well, you've finally arrived! 
+<P><FONT color=red>This is the assessable component of this assignment. It is 
+worth 25 marks of the 100 available for the class mark component of the course. 
+13 marks will be awarded based on testing correctness of your solution 
+(automated testing); 12 marks will be awarded for style, clarity, performance, 
+and conciseness of your solution (as judged by a real human being).</FONT> 
+<H4>Synchronisation Primitives - Implementing Locks</H4>Implement locks for 
+OS/161. The interface for the lock structure is defined in 
+<TT>kern/include/synch.h</TT>. Stub code is provided in 
+<TT>kern/threads/synch.c</TT>. 
+<P>Limit your changes to these two files. Note that a lock tester is available 
+in the test menus. 
+<H4>Solving Synchronisation Problems</H4>The following problem will give you the 
+opportunity to write a fairly straightforward concurrent program and get a more 
+detailed understanding of how to use threads to solve problems. We have provided 
+you with basic driver code that starts a predefined number of threads that 
+execute a predefined activity (in the form of calling functions that you must 
+implement). You are responsible for implementing the functions called. 
+<P>Remember to specify a seed to use in the random number generator by editing 
+your sys161.conf file. It is much easier to debug initial problems when the 
+sequence of execution and context switches is reproducible. 
+<P>When you configure your kernel for ASST1, the driver code and extra menu 
+options for executing your solutions are automatically compiled in. 
+<H4>Introduction to Bar Synchronisation</H4>It's Thursday night, you have 
+finished your lecture, and you decide to unwind, relax, and head to the bar for 
+a drink. When you arrive you find the bar in complete chaos. Customers are 
+receiving empty glasses, bar tenders are fighting over the bar tap, orders are 
+getting lost, drinks are being mixed up, drinks are being poured into customers' 
+unfinished glasses, some customers are waiting forever for their first drink, 
+while others have already passed out on the floor. 
+<P>Being an operating system expert, you quickly realise that the bar's problems 
+are related to concurrency issues between the customers and bartenders. You 
+volunteer your services to provide a solution to the bar's problems, reduce the 
+chaos, and restore order to the bar. 
+<H4>The Basic Bar</H4>To provide a solution, you must come to terms with the 
+basic elements of the bar you have to work with. The bar consists of a limited 
+set of glasses, orders, and bottles containing various drinks such as BEER, GIN, 
+and VODKA, that are used to pour drinks for customers. The basic elements are 
+defined in <TT>kern/asst1/bar.h</TT>. The actions of customers and bartenders 
+are defined in <TT>kern/asst1/bar_driver.c</TT>. See the file for detailed 
+comments. 
+<UL>
+  <LI><B>Customers</B> are rather simple, they order, drink, return their glass, 
+  and repeat until they go home. 
+  <LI><B>Bartenders</B> are only slightly more complicated than the customers. 
+  They take_orders, and if valid, they fill them and serve them . When all the 
+  customers have left, the bartenders go home. </LI></UL>The function 
+<TT>createbar()</TT> is called via the menu in OS/161. <TT>createbar()</TT> does 
+the following. 
+<UL>
+  <LI>It initialises all the bottles to have served zero doses. 
+  <LI>It calls <TT>bar_open</TT>, a routine you will provide to set up the bar. 
+  <LI>It then creates some threads to run as bartenders, and some more threads 
+  to run as customers. Note these threads obviously run concurrently. 
+  <LI>The driver thread then waits on a semaphore for all the bartenders and 
+  customers to finish, after which we print out the bottle statistics for the 
+  evening. 
+  <LI>Finally, it calls <TT>bar_close</TT>, a procedure you provide to clean up 
+  when the bar has closed. </LI></UL>The function <TT>pour()</TT> takes a three 
+ingredients (derived from an order, some can be NOTHING) and pours them into a 
+glass in the correct order. The ingredients are represented by numbers, each 
+number corresponds to the selected bottle number. Note the contents of the glass 
+is also represented by an array of numbers (ingredients). The meaning of the 
+bottle numbers are defined in <TT>bar.h</TT>. 
+<P>You can assume that all bottles in the bar are infinite in size and hence 
+will never be empty. 
+<P>Have a quick look through both <TT>bar_driver.c</TT> and <TT>bar.h</TT> to 
+reinforce your understanding of what is going on (well, at least what is 
+expected to go on). 
+<H4>Your Job</H4>Your job is to write the functions outlined in <TT>bar.c</TT> 
+that perform most of the work. Each function is described in <TT>bar.c</TT>. 
+<P>Generally, your solution must result in the following when 
+<TT>createbar()</TT> is called during testing. 
+<UL>
+  <LI>The bar being prepared for opening 
+  <LI>All customers having their orders served with the correct drinks in a 
+  glass (poured in the correct order). 
+  <LI>The bartenders all going home after all the customers are finished. 
+  <LI>The bar being suitably cleaned up afterwards (allocated memory or locks, 
+  semaphores, etc being freed). </LI></UL>Your solution must be sensible in 
+reality. For example: 
+<UL>
+  <LI>You can't serve customers the same glass at the same time. 
+  <LI>You can only use the glasses available, you can't create more than the 
+  number available at initialisation. You can recycle used glasses when they are 
+  returned. 
+  <LI>The bartenders can't pour with the same bottle at the same time. </LI></UL>
+<P>You can modify <TT>bar_driver.c</TT> to test different scenarios (e.g vary 
+the number and type of drinks ordered), but <B><FONT color=red>your solution 
+must also work with an unmodified version of the bar_driver.c file.</FONT></B> 
+<P>You will have to modify <TT>bar.h</TT> to implement your solution. However, 
+your modifications have the constraint that they must still work with an 
+original <TT>bar_driver.c</TT>. 
+<H4>Before Coding!!!!</H4>You should have a very good idea of what your 
+attempting to do before you start. Concurrency problems are very difficult to 
+debug, so it's in your best interest that you convince yourself you have a 
+correct solution before you start. 
+<P>The following questions may help you develop your solution. 
+<UL>
+  <LI>What are the shared resources (e.g. bottles)? 
+  <LI>Who shares what resources? 
+  <LI>Who produces what and who consumes what (e.g. customers produce orders 
+  consumed by bartenders)? 
+  <LI>What states can the various resources be in (e.g a glass may be empty or 
+  full)? 
+  <LI>What do you need to keep a count of (e.g. number of customers in the bar)? 
+
+  <LI>How does your solution prevent deadlock or starvation (in this case, 
+  dehydration :-))? </LI></UL>Try to frame the problem in terms of resources 
+requiring concurrency control, and producer-consumer problems. A diagram may 
+help you to understand the problem. 
+<P>Hint: There is a built in race condition in the bartender code. The bartender 
+tests if there are anymore drinkers with the <TT>drinkers()</TT> function, if 
+there are, he waits for the next order. If the drinkers go home after the call 
+to <TT>drinkers()</TT>, the bartender can be left in the bar waiting for orders 
+without any customers. You need to resolve this race without modifying the code 
+in <TT>bar_driver.c</TT> 
+<H3>Evaluating your solution</H3>Your solution will be judged in terms of its 
+correctness, conciseness, clarity, and performance. 
+<P>Performance will be judged in at least the following areas. 
+<UL>
+  <LI>Are all the glasses in use when possible? 
+  <LI>Do all the bartenders participate? 
+  <LI>Do we minimise the number of pours per glass (ideally only one)? 
+  <LI>Can bartenders pour in parallel if they do not require the same 
+  ingredients? </LI></UL>
+<H3>Generating Your Assignment Submission</H3>As with assignment 0, you again 
+will be submitting a diff of your changes to the original tree. 
+<P>You should first commit your changes back to the repository using the 
+following command. Note: You will have to supply a comment on you changes. <PRE>% cd ~/cs3231/src
+% cvs commit
+</PRE>
+<P>Now tag the repository so that you can always retrieve your current version 
+in the future. <PRE>% cd ~/cs3231/src
+% cvs tag ass1-finish
+</PRE>
+<P>Now generate a file containing the diff. <PRE>% cvs -q rdiff -r os161-base -r ass1-finish -c src &gt; ~/ass1.diff
+</PRE>
+<H3>Submitting Your Assignment</H3>Now submit the diff as your assignment. <PRE>% cd ~
+% give cs3231 ass1 ass1.diff
+</PRE>You're now done. 
+<P class=modified>Page last modified: 6:40 pm 27 Mar 2003</P>
+<P><A 
+href="http://www.cse.unsw.edu.au/~cs3231/assigns/os161/ass1/index.shtml">Screen 
+Version</A></P></BODY></HTML>

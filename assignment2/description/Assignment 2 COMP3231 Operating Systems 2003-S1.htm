@@ -1,0 +1,625 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<!-- saved from url=(0071)http://www.cse.unsw.edu.au/~cs3231/assigns/os161/ass2/index.shtml?print -->
+<HTML><HEAD><TITLE>Assignment 2 COMP3231 Operating Systems 2003/S1</TITLE><LINK 
+title=OS href="Assignment 2 COMP3231 Operating Systems 2003-S1_files/.style.css" 
+type=text/css rel=stylesheet>
+<META http-equiv=Content-Type content="text/html; charset=iso-8859-1">
+<META 
+content="course University New South Wales UNSW&#10;      Computer Science Engineering" 
+name=Keywords>
+<META content="Kevin Elphinstone &amp; Cameron Stone" name=Author>
+<META content=document name=resource-type>
+<META content=en name=language>
+<META 
+content="COMP3231 Introductory level operating systems&#10;      course (third year)" 
+name=Description>
+<META content=document name=resource-type>
+<META content=en name=language>
+<META content="MSHTML 6.00.2800.1170" name=GENERATOR></HEAD>
+<BODY>
+<H2 align=center><FONT color=navy>Assignment 2: System Calls and 
+Processes</FONT></H2>
+<H2>Due Date: Midnight, Wednesday May 14th, Week 10</H2>
+<H3>Worth 30 marks (of the 100 available for the class mark component of the 
+course)</H3>
+<H3>The 10% bonus for one week early is available for the basic assignment. 
+Deadline: Midnight, Wednesday May 7th</H3>
+<H3>The extra 5% bonus for a submitted, working assignment within 48 hours of 
+release, is also available for the basic assignment. Deadline: Midnight, Tuesday 
+April 29th </H3><EM>See course intro for exact details. Note the demonstration 
+requirement.</EM> 
+<H3>Up to a 20% bonus is available for the advanced part of the 
+assignment</H3>To attempt the advanced part, you must finish the standard 
+assignment at least one week early, and get permission from <A 
+href="mailto:kevine@cse.unsw.edu.au">Kevin</A>. 
+<P>Any bonus awarded for the advanced part can be used to make up for lost marks 
+in any class mark component of the course. 
+<H2>Introduction</H2>In this assignment you will be implementing a set of 
+file-related system calls. Upon completion, you will be able to run a single 
+small process that runs at user-level, and can perform some basic file I/O. 
+<P>If you attempt the advanced part, you will add the ability to run multiple 
+processes. 
+<P>Your current OS/161 system has minimal support for running executables, 
+nothing that could be considered a true process. Assignment 2 starts the 
+transformation of OS/161 into something closer to a true multi-tasking operating 
+system. After this assignment, it will be capable of running a single process 
+from actual compiled programs stored in your account. The program will be loaded 
+into OS/161 and executed in user mode by System/161; this will occur under the 
+control of your kernel. First, however, you must implement part of the interface 
+between user-mode programs ("userland") and the kernel. As usual, we provide 
+part of the code you will need. Your job is to design and build the missing 
+pieces. 
+<P>Our code can run one user-level C program at a time as long as it doesn’t 
+want to do anything but shut the system down. We have provided sample user 
+programs that do this (reboot, halt, poweroff), as well as others that make use 
+of features you might be adding in this and future assignments. So far, all the 
+code you have written for OS/161 has only been run within, and only been used 
+by, the operating system kernel. In a real operating system, the kernel’s main 
+function is to provide support for user-level programs. Most such support is 
+accessed via "system calls." We give you one system call, reboot(), which is 
+implemented in the function sys_reboot() in main.c. In GDB, if you put a 
+breakpoint on sys_reboot and run the "reboot" program, you can use "backtrace" 
+to see how it got there. 
+<P>For those attempting the advanced version of the assignment, you will also be 
+implementing the subsystem that keeps track of multiple tasks. You must decide 
+what data structures you will need to hold the data pertinent to a "process" 
+(hint: look at kernel include files of your favorite operating system for 
+suggestions, specifically the proc structure.) The first step is to read and 
+understand the parts of the system that we have written for you. 
+<H3>User-level programs</H3>Our System/161 simulator can run normal programs 
+compiled from C. The programs are compiled with a cross-compiler, cs161-gcc. 
+This runs on a host (e.g., a Linux x86 machine) and produces MIPS executables; 
+it is the same compiler used to compile the OS/161 kernel. To create new user 
+programs, you will need to edit the Makefile in bin, sbin, or testbin (depending 
+on where you put your programs) and then create a directory similar to those 
+that already exist. Use an existing program and its Makefile as a template. 
+<H3>Design</H3>In the beginning, you should tackle this assignment by producing 
+a DESIGN DOCUMENT. The design documents should clearly reflect the development 
+of your solution. They should not merely explain what you programmed. If you try 
+to code first and design later, or even if you design hastily and rush into 
+coding, you will most certainly end up in a software "tar pit". Don't do it! 
+Plan everything you will do. Don't even think about coding until you can 
+precisely explain to a colleague what problems you need to solve and how the 
+pieces relate to each other. Note that it can often be hard to write (or talk) 
+about new software design, you are facing problems that you have not seen 
+before, and therefore even finding terminology to describe your ideas can be 
+difficult. There is no magic solution to this problem; but it gets easier with 
+practice. The important thing is to go ahead and try. Always try to describe 
+your ideas and designs to someone else. In order to reach an understanding, you 
+may have to invent terminology and notation, this is fine. If you do this, by 
+the time you have completed your design, you will find that you have the ability 
+to efficiently discuss problems that you have never seen before. Why do you 
+think that CS is filled with so much jargon? To help you get started, we have 
+provided the following questions as a guide for reading through the code. We 
+recommend that you answer questions for the different modules and be prepared to 
+discuss them in your Week 8 tutorial. Once you have prepared the answers, you 
+should be ready to develop a strategy for designing your code for this 
+assignment. 
+<H2>Code walk-through </H2>Bring your answers to the code walk-through questions 
+to your week 8 tutorial. 
+<H3>kern/userprog </H3>This directory contains the files that are responsible 
+for the loading and running of userlevel programs. Currently, the only files in 
+the directory are loadelf.c, runprogram.c, and uio.c, although you may want to 
+add more of your own during this assignment. Understanding these files is the 
+key to getting started with the assignment, especially the advanced part, the 
+implementation of multiprogramming. Note that to answer some of the questions, 
+you will have to look in files outside this directory. 
+<H4>loadelf.c</H4>This file contains the functions responsible for loading an 
+ELF executable from the filesystem and into virtual memory space. Of course, at 
+this point this virtual memory space does not provide what is normally meant by 
+virtual memory, although there is translation between the addresses that 
+executables "believe" they are using and physical addresses, there is no 
+mechanism for providing more memory than exists physically. 
+<H4>runprogram.c</H4>This file contains only one function, runprogram(), which 
+is the function that is responsible for running a program from the kernel menu. 
+Once you have designed your file system calls, a program started by runprogram() 
+should have the standard file descriptors (stdout, stderr) available while it's 
+running. 
+<P>In the advanced assignment, runprogram() is a good base for writing the 
+execv() system call, but only a base. When writing your design doc, you should 
+determine what more is required for execv() that runprogram() does not need to 
+worry about. Once you have design your process framework, runprogram() should be 
+altered to start processes properly within this framework. 
+<H4>uio.c</H4>This file contains functions for moving data between kernel and 
+user space. Knowing when and how to cross this boundary is critical to properly 
+implementing userlevel programs, so this is a good file to read very carefully. 
+You should also examine the code in lib/copyinout.c. 
+<H4>Questions</H4>
+<P>1. What are the ELF magic numbers? 
+<P>2. What is the difference between UIO_USERISPACE and UIO_USERSPACE? When 
+should one use UIO_SYSSPACE instead? 
+<P>3. Why can the struct uio that is used to read in a segment be allocated on 
+the stack in load_segment() (i.e., where does the memory read actually go)? 
+<P>4. In runprogram(), why is it important to call vfs_close before going to 
+usermode? 
+<P>5. What function forces the processor to switch into usermode? Is this 
+function machine dependent? 
+<P>6. In what file are copyin and copyout defined? memmove? Why can’t copyin and 
+copyout be implemented as simply as memmove? 
+<P>7. What (briefly) is the purpose of userptr_t? 
+<H3>kern/arch/mips/mips: traps and syscalls</H3>Exceptions are the key to 
+operating systems; they are the mechanism that enables the OS to regain control 
+of execution and therefore do its job. You can think of exceptions as the 
+interface between the processor and the operating system. When the OS boots, it 
+installs an "exception handler" (carefully crafted assembly code) at a specific 
+address in memory. When the processor raises an exception, it invokes this, 
+which sets up a "trap frame" and calls into the operating system. Since 
+"exception" is such an overloaded term in computer science, operating system 
+lingo for an exception is a "trap", when the OS traps execution. Interrupts are 
+exceptions, and more significantly for this assignment, so are system calls. 
+Specifically, syscall.c handles traps that happen to be syscalls. Understanding 
+at least the C code in this directory is key to being a real operating systems 
+junkie, so we highly recommend reading through it carefully. 
+<H4>trap.c</H4>mips_trap() is the key function for returning control to the 
+operating system. This is the C function that gets called by the assembly 
+exception handler. md_usermode() is the key function for returning control to 
+user programs. kill_curthread() is the function for handling broken user 
+programs; when the processor is in usermode and hits something it can't handle 
+(say, a bad instruction), it raises an exception. There's no way to recover from 
+this, so the OS needs to kill off the process. The advance part of this 
+assignment will include writing a useful version of this function. 
+<H4>syscall.c</H4>mips_syscall() is the function that delegates the actual work 
+of a system call off to the kernel function that implements it. Notice that 
+reboot is the only case currently handled. You will also find a function, 
+md_forkentry, which is a stub where you will place your code to implement the 
+fork system call should you attempt the advanced part. It should get called from 
+mips_syscall. 
+<H4>Questions</H4>
+<P>8. What is the numerical value of the exception code for a MIPS system call? 
+<P>9. Why does mips_trap() set curspl to SPL_HIGH "manually", instead of using 
+splhigh()? 
+<P>10. How many bytes is an instruction in MIPS? (Answer this by reading 
+mips_syscall() carefully, not by looking somewhere else.) 
+<P>11. Why do you "probably want to change" the implementation of 
+kill_curthread()? 
+<P>12. What would be required to implement a system call that took more than 4 
+arguments? 
+<P>13. What is the purpose of userptr_t? 
+<H3>lib/crt0: the C startup code</H3>There’s only one file in here, mips-crt0.S, 
+which contains the MIPS assembly code that receives control first when a 
+user-level program is started. It calls main(). This is the code that your execv 
+implementation will be interfacing to, so be sure to check what values it 
+expects to appear in what registers and so forth. 
+<H3>lib/libc: the user-level side of things</H3>There’s obviously a lot of code 
+in the OS/161 C library (and a lot more yet in a real system’s C library...) We 
+don’t expect you to read it all, although it may be instructive in the long run 
+to do so. Job interviewers have an uncanny habit of asking people to implement 
+simple standard C functions on the whiteboard. For present purposes you need 
+only look at the code that implements the user-level side of system calls. 
+<H4>errno.c </H4>This is where the global variable errno is defined. 
+<H4>syscalls-mips.S</H4>This file contains the machine-dependent code necessary 
+for implementing the userlevel side of MIPS system calls. 
+<H4>syscalls.S</H4>This file is created from syscalls-mips.S at compile time and 
+is the actual file assembled to put into the C library. The actual names of the 
+system calls are placed in this file using a script called callno-parse.sh that 
+reads them from the kernel’s header files. This avoids having to make a second 
+list of the system calls. In a real system, typically each system call stub is 
+placed in its own source file, to allow selectively linking them in. OS/161 puts 
+them all together to simplify the makefiles. 
+<H4>Questions</H4>
+<P>14. What is the purpose of the SYSCALL macro? 
+<P>15. What is the MIPS instruction that actually triggers a system call? 
+(Answer this by reading the source in this directory, not looking somewhere 
+else.) 
+<H2>Basic Assignment </H2>
+<H3>Setting Up Assignment 2</H3>
+<P>Follow these directions carefully!!!!! Make sure you have plenty of disk 
+quota available before you start. 
+<P>Download the following patch from the class web site (<A 
+href="http://www.cse.unsw.edu.au/~cs3231/assigns/os161/ass2/ass2-start.patch">ass2-start.patch</A>) 
+and save it in your home directory. 
+<P>We will now create a branch in your cvs repository to work on this 
+assignment. <B>Make sure you get the following command correct</B>. <PRE>% cvs rtag -r os161-base -b ass2 src
+</PRE>
+<P>This creates a branch in CVS called <TT>ass2</TT>. Remove the <TT>src</TT> 
+from the previous assignment (you will have a copy committed in your 
+repository), and checkout a copy of this assignment to work on. <PRE>% cd ~/cs3231
+% rm -rf src
+% cvs checkout -r ass2 src
+</PRE>Note that if in the future you wish to checkout the latest (most recently 
+committed) version of your sources to this assignment, you can use the above 
+command again. If you do, take care not to do it over the top of an existing 
+tree. 
+<P>We will now <EM>patch</EM> your checked out tree to make the changes you need 
+to do this assignment. <PRE>% cd ~/cs3231/src
+% patch -p1 &lt; ~/ass2-start.patch
+patching file kern/conf/conf.kern
+patching file kern/include/file.h
+patching file kern/include/synch.h
+patching file kern/include/thread.h
+patching file kern/include/version.h
+patching file kern/main/main.c
+patching file kern/main/menu.c
+patching file kern/thread/synch.c
+patching file kern/thread/thread.c
+patching file kern/userprog/file.c
+patching file kern/userprog/runprogram.c
+patching file lib/hostcompat/time.c
+patching file lib/libc/exit.c
+patching file testbin/Makefile
+patching file testbin/asst2/Makefile
+patching file testbin/asst2/asst2.c
+patching file testbin/asst2/depend.mk
+%
+</PRE>Now we will tell cvs to add some files and directories from this version 
+of the sources. <PRE>% cd ~/cs3231/src
+% cvs add testbin/asst2 kern/userprog/file.c kern/include/file.h
+% cd testbin/asst2
+% cvs add Makefile asst2.c depend.mk
+</PRE>We will now check how successful your update of the sources has been. Run 
+the following command and check to see its output matches that below. <PRE>% cd ~/cs3231/src
+% cvs -q -n update
+M kern/conf/conf.kern
+A kern/include/file.h
+M kern/include/synch.h
+M kern/include/thread.h
+M kern/include/version.h
+M kern/main/main.c
+M kern/main/menu.c
+M kern/thread/synch.c
+M kern/thread/thread.c
+A kern/userprog/file.c
+M kern/userprog/runprogram.c
+M lib/hostcompat/time.c
+M lib/libc/exit.c
+M testbin/Makefile
+A testbin/asst2/Makefile
+A testbin/asst2/asst2.c
+A testbin/asst2/depend.mk
+%
+</PRE>You will notice we have added (A) five files, and modified (M) twelve 
+others. 
+<P>Now commit these changes to the repository, and tag them as ass2-start. Note 
+you will have to enter a log message during the commit. <PRE>% cd ~/cs3231/src
+% cvs commit 
+% cvs tag ass2-start
+</PRE>You are now ready to start the assignment. 
+<P>Note: We have included our own version of the synchronisation primitives you 
+wrote in Assignment 1. You can use your own if you wish, but make sure that 
+whatever base you start with is "rock solid". 
+<H3>Building and Testing Your Assignment</H3>
+<H4>Configure OS/161 for Assignment 2</H4>
+<P>Before proceeding further, configure your new sources. <PRE>% cd ~/cs3231/src
+% ./configure
+</PRE>
+<P>Unlike previous the previous assignment, you will need to build and install 
+the user-level programs that will be run by your kernel in this assignment. <PRE>% cd ~/cs3231/src
+% make
+</PRE>Note: "make" in this directory does both "make" and "make install". 
+<P>For your kernel development, again we have provided you with a framework for 
+you to run your solutions for ASST2. 
+<P>You have to reconfigure your kernel before you can use this framework. The 
+procedure for configuring a kernel is the same as in ASST0 and ASST1, except you 
+will use the ASST2 configuration file: <PRE>% cd ~/cs3231/src/kern/conf	
+% ./config ASST2
+</PRE>You should now see an ASST2 directory in the compile directory. 
+<H4>Building for ASST2</H4>When you built OS/161 for ASST1, you ran make from 
+compile/ASST1 . In ASST2, you run make from (you guessed it) compile/ASST2. <PRE>% cd ../compile/ASST2
+% make depend
+% make
+% make install
+</PRE>If you are told that the compile/ASST2 directory does not exist, make sure 
+you ran config for ASST2. 
+<H4>Command Line Arguments to OS/161</H4>Your solutions to ASST2 will be tested 
+by running OS/161 with command line arguments that correspond to the menu 
+options in the OS/161 boot menu. 
+<P><B>IMPORTANT: Please DO NOT change these menu option strings!</B> 
+<H4>Running "asst2"</H4>For this assignment, we have supplied a user-level 
+OS/161 program that you can use for testing. It is called <TT>asst2</TT>, and 
+its sources live in <TT>src/testbin/asst2</TT>. 
+<P>You can test your assignment by typing <TT>p /testbin/asst2</TT> at the 
+OS/161 menu prompt. <B>Note: On cygwin, you need to type <TT>p 
+/testbin/asst2.exe</TT></B> 
+<P>Running the program produces output similar to the following prior to 
+starting the assignment. <PRE>Unknown syscall 6
+Unknown syscall 6
+Unknown syscall 6
+Unknown syscall 6
+Unknown syscall 6
+Unknown syscall 6
+Unknown syscall 0
+</PRE><TT>asst2</TT> produces the following output on a (maybe partially) 
+working assignment. <PRE> 
+OS/161 kernel [? for menu]: p /testbin/asst2
+Operation took 0.000212160 seconds
+OS/161 kernel [? for menu]:
+**********
+* File Tester
+**********
+* write() works for stdout
+**********
+* write() works for stderr
+**********
+* opening new file "test.file"
+* open() got fd 3
+* writing test string
+* wrote 45 bytes
+* writing test string again
+* wrote 45 bytes
+* closing file
+**********
+* opening old file "test.file"
+* open() got fd 3
+* reading entire file into buffer
+* attemping read of 500 bytes
+* read 90 bytes
+* attemping read of 410 bytes
+* read 0 bytes
+* reading complete
+* file content okay
+**********
+* testing lseek
+* reading 10 bytes of file into buffer
+* attemping read of 10 bytes
+* read 10 bytes
+* reading complete
+* file lseek  okay
+* closing file
+**********
+* testing getcwd
+* cwd = emu0:
+**********
+* testing chdir "emu0:include"
+* chdir succeeded
+**********
+* testing getcwd again
+EXPECTED ERROR getcwd returned NULL: Unimplemented feature
+**********
+* Expecting to open "assert.h"
+* open() got fd 3
+* closing file
+Unknown syscall 0
+</PRE>
+<H3>The Assignment: File System Calls</H3>Implement the following file-based 
+system calls. The full range of system calls that we think you might want over 
+the course of the semester is listed in kern/include/kern/callno.h. For this 
+assignment you should implement: open, read, write, lseek, close, chdir, getcwd, 
+dup2. 
+<P>It's crucial that your syscalls handle all error conditions gracefully (i.e., 
+without crashing OS/161.) You should consult the OS/161 man pages included in 
+the distribution and understand fully the system calls that you must implement. 
+You must return the error codes as decribed in the man pages. Additionally, your 
+syscalls must return the correct value (in case of success) or error code (in 
+case of failure) as specified in the man pages. Some of the auto-marking scripts 
+rely on the return of appropriate error codes; adherence to the guidelines is as 
+important as the correctness of the implementation. The file include/unistd.h 
+contains the user-level interface definition of the system calls that you will 
+be writing for OS/161 (including ones you will implement in later assignments). 
+This interface is different from that of the kernel functions that you will 
+define to implement these calls. You need to design this interface and put it in 
+kern/include/syscall.h. As you discovered (ideally) in Assignment 0, the integer 
+codes for the calls are defined in kern/include/kern/callno.h. You need to think 
+about a variety of issues associated with implementing system calls. Perhaps, 
+the most obvious one is: can two different user-level processes (or user-level 
+threads, if you choose to implement them) find themselves running a system call 
+at the same time? In the basic assignment, which only supports one process, the 
+answer should be clear. Those doing the advanced version need to think a little 
+harder. Be sure to understand the alternatives and be to explain your 
+conclusions. 
+<H4>open(), read(), write(), lseek(), close(), dup2(), chdir(), and 
+__getcwd()</H4>For any given process, the first file descriptors (0, 1, and 2) 
+are considered to be standard input (stdin), standard output (stdout), and 
+standard error (stderr). <B>For this basic assignment, the file descriptors 1 
+(stdout) and 2 (stderr) must start out attached to the console device 
+("con:").</B> You will probably modify runprogram() to achieve this. Your 
+implementation must allow programs to use dup2() to change stdin, stdout, stderr 
+to point elsewhere. 
+<P>Although these system calls may seem to be tied to the filesystem, in fact, 
+these system calls are really about manipulation of file descriptors, or 
+process-specific filesystem state. A large part of this assignment is designing 
+and implementing a system to track this state. Some of this information (such as 
+the cwd) is specific only to the process, but others (such as offset) is 
+specific to the process and file descriptor. Don’t rush this design. Think 
+carefully about the state you need to maintain, how to organise it, and when and 
+how it has to change. Note that there is a system call __getcwd and then a 
+library routine getcwd. Once you’ve written the system call, the library routine 
+should function correctly. 
+<P>While this assignment requires you to implement file-system-related system 
+calls, you actually have to write virtually no low-level file system code in 
+this assignment. You will use the existing VFS layer to do most of the work. 
+Your job is to construct the subsystem that implements the interface expected by 
+user-level programs by invoking the appropriate VFS and vnode operations. 
+<P><B>While you are not restricted to only modifying these files, please place 
+most of your implementation in the following files: function prototypes and data 
+types for your file subsystem in <TT>src/kern/include/file.h</TT>, and the 
+function implementations and variable instantiations in 
+<TT>src/kern/userprog/file.c</TT>. </B>
+<H4>A note on errors and error handling of system calls</H4>The man pages in the 
+OS/161 distribution contain a description of the error return values that you 
+must return. If there are conditions that can happen that are not listed in the 
+man page, return the most appropriate error code from kern/errno.h. If none seem 
+particularly appropriate, consider adding a new one. If you're adding an error 
+code for a condition for which Unix has a standard error code symbol, use the 
+same symbol if possible. If not, feel free to make up your own, but note that 
+error codes should always begin with E, should not be EOF, etc. Consult Unix man 
+pages to learn about Unix error codes. Note that if you add an error code to 
+src/kern/include/kern/errno.h, you need to add a corresponding error message to 
+the file src/lib/libc/strerror.c. 
+<H3>Design Questions </H3>Here are some additional questions and issues to aid 
+you in developing your design. They are by no means comprehensive, but they are 
+a reasonable place to start developing your solution. 
+<P>What primitive operations exist to support the transfer of data to and from 
+kernel space? Do you want to implement more on top of these? 
+<P>How are <TT>vfs_open</TT>, <TT>vfs_close</TT> used. What other 
+<TT>vfs_()</TT> calls are relevant. 
+<P>What are VOP_READ, VOP_WRITE? How are they used? 
+<P>You will need to "bullet-proof" the OS/161 kernel from user program errors. 
+There should be nothing a user program can do to crash the operating system when 
+invoking the file system calls. It is okay in the basic assignment for the 
+kernel to panic for an unimplemented system call (e.g. <TT>exit()</TT>), or a 
+user-level program error. 
+<P>Decide which functions you need to change and which structures you may need 
+to create to implement the system calls. 
+<P>How you will keep track of open files? For which system calls is this useful? 
+
+<P>For additional background, consult one or more of the following texts for 
+details how similar existing operating systems structure their file system 
+management: 
+<UL>
+  <LI>Section 10.6.3 and "NFS implementation" in Section 10.6.4, Tannenbaum, 
+  <EM>Modern Operating Systems </EM>. 
+  <LI>Section 6.4 and Section 6.5, McKusick <EM>et al.</EM>, <EM>The Design and 
+  Implementation of the 4.4 BSD Operating System</EM>. 
+  <LI>Chapter 8, Vahalia, <EM>Unix Internals: the new frontiers</EM>. 
+  <LI>The original <A 
+  href="http://www.cse.unsw.edu.au/~cs3231/assigns/os161/ass2/kleiman86vnodes.pdf">VFS 
+  paper is available here</A>. </LI></UL>
+<H2>Basic Assignment Submission </H2>As with assignment 0, you again will be 
+submitting a diff of your changes to the original tree. 
+<P>You should first commit your changes back to the repository using the 
+following command. Make sure you <TT>cvs add</TT> any new files you added to 
+your kernel. Note: You will have to supply a comment on your changes. <PRE>% cd ~/cs3231/src
+% cvs commit
+</PRE>
+<P>Now tag the repository so that you can always retrieve your current version 
+in the future. <PRE>% cd ~/cs3231/src
+% cvs tag ass2-finish
+</PRE>
+<P>Now generate a file containing the diff. <PRE>% cvs -q rdiff -r os161-base -r ass2-finish -u src &gt; ~/ass2.diff
+</PRE>To check your diff file, see the <A 
+href="http://www.cse.unsw.edu.au/~cs3231/doc/subcheck.shtml">Assignment 
+Submission Guidelines</A> 
+<H3>Submitting Your Assignment</H3>Now submit the diff as your assignment. <PRE>% cd ~
+% give cs3231 ass2 ass2.diff
+</PRE>You're now done. 
+<H2>Advanced Assignment </H2>The advanced assignment is to complete the basic 
+assignment, plus the following. 
+<H3>Setting Up Advanced Assignment 2</H3>
+<P>Given your doing the advanced version of the assignment, I'm assuming your 
+competent with managing your CVS repository and don't need simple directions. 
+<P>Basically, at the end of the assignment you will need to generate a 
+<TT>rdiff</TT> between your final version and os161-base. It is up to you how 
+you get there. Two obvious options are: continue developing along your ass2 
+branch, or create a new branch from where you finished the basic part of ass2. 
+<B>Warning: don't submit a cvs diff!</B> Only submit a <B>cvs rdiff</B> as 
+<TT>cvs diff</TT> generates broken patches. 
+<P>An example branch <PRE>% cvs rtag -r ass2-finished  -b ass2_adv src
+</PRE>
+<H3>Extra system calls </H3>
+<H4>getpid()</H4>
+<P>A pid, or process ID, is a unique number that identifies a process. The 
+implementation of getpid() is not terribly challenging, but pid allocation and 
+reclamation are the important concepts that you must implement. It is not OK for 
+your system to crash because over the lifetime of its execution you've used up 
+all the pids. Design your pid system; implement all the tasks associated with 
+pid maintenance, and only then implement getpid(). 
+<H4>fork(), execv(), waitpid(), _exit()</H4>These system calls are probably the 
+most difficult part of the whole assignment, but also the most rewarding. They 
+enable multiprogramming and make OS/161 a much more useful entity. fork() is 
+your mechanism for creating new processes. It should make a copy of the invoking 
+process and make sure that the parent and child processes each observe the 
+correct return value (that is, 0 for the child and the newly created pid for the 
+parent). You will want to think carefully through the design of fork and 
+consider it together with execv to make sure that each system call is performing 
+the correct functionality. execv(), although "only" a system call, is really the 
+heart of this assignment. It is responsible for taking newly created processes 
+and make them execute something useful (i.e., something different than what the 
+parent is executing). Essentially, it must replace the existing address space 
+with a brand new one for the new executable (created by calling as_create in the 
+current dumbvm system) and then run it. While this is similar to starting a 
+process straight out of the kernel (as runprogram() does), it's not quite that 
+simple. Remember that this call is coming out of userspace, into the kernel, and 
+then returning back to userspace. You must manage the memory that travels across 
+these boundaries very carefully. (Also, notice that runprogram() doesn't take an 
+argument vector, but these must of course be handled correctly in execv()). 
+<P>Although it may seem simple at first, waitpid() requires a fair bit of 
+design. Read the specification carefully to understand the semantics, and 
+consider these semantics from the ground up in your design. You may also wish to 
+consult the UNIX man page, though keep in mind that you are not required to 
+implement all the things UNIX waitpid() supports, nor is the UNIX parent/child 
+model of waiting the only valid or viable possibility. The implementation of 
+_exit() is intimately connected to the implementation of waitpid(). They are 
+essentially two halves of the same mechanism. Most of the time, the code for 
+_exit() will be simple and the code for waitpid() relatively complicated, but 
+it's perfectly viable to design it the other way around as well. If you find 
+both are becoming extremely complicated, it may be a sign that you should 
+rethink your design. 
+<H3>kill_curthread()</H3>Feel free to write kill_curthread() in as simple a 
+manner as possible. Just keep in mind that essentially nothing about the current 
+thread’s userspace state can be trusted if it has suffered a fatal exception—it 
+must be taken off the processor in as judicious a manner as possible, but 
+without returning execution to the user level. 
+<H3>Shell</H3>
+<H4>Write and test a simple user shell</H4>A shell is a user program that reads 
+in user comands and calls on the kernel to execute them. When you log into your 
+CSE account, you are probably running a shell called bash. Your OS/161 shell 
+should provide a prompt (e.g. "wallaby&gt; ") and accept user commands. Each 
+comand and its argument list (an array of character pointers) should be passed 
+to the execv() system call, but only after calling fork() to get a new thread of 
+execution. The argument list, argv, should contain the command name as its first 
+string, argv[0]. Once the kernel has finished executing the command, your shell 
+should provide another prompt and wait for input. You should be able to exit the 
+shell by entering "exit". 
+<P>Your shell should also support the basic job control function: &amp;, which 
+executes a process in the background. That is, a prompt appears, allowing the 
+user to enter another command, even before the last command has finished 
+executing. Your shell should not waste an excessive amount of space remembering 
+exit codes if you run a lot of jobs in the background. The skeleton for your 
+shell is in bin/sh/sh.c. Since the OS/161 system calls needed by your shell are 
+remarkably similar to those supported by Linux, you should be able to write your 
+shell and test it by compiling for Linux. (The supplied makefile already does 
+this.) This way, you can write your shell before the rest of Assignment 2 is 
+finished. Keep in mind that this is the same shell you will use later as the 
+user interface for OS/161; it must run as a user program and leave sufficient 
+space for other user programs to run. Consequently, be careful to keep your 
+shell lean. Avoid adding the ultimate X-interface you’ve always wanted to have; 
+however, it must include the following built-in commands: cd exit 
+<H4>Test your shell.</H4>Under OS/161, once you have the system calls for this 
+assignment, you should be able to use the following user programs from the bin 
+directory: cat, cp, false, pwd, and true. You may also find some of the programs 
+in the testbin directory helpful. Under Linux, you should be able to run 
+anything as long as you don’t try to use wildcards, fancy shell quoting, pipes, 
+etc. <B><EM>Note: You may co-develop or share your shell with anyone you 
+wish.</EM> The shell is not an accessible component of the advanced assignment, 
+but is required to test your system.</B> 
+<H3>Design Questions</H3>Here are some additional questions and thoughts to aid 
+in writing your design document. They are not, by any means, meant to be a 
+comprehensive list of all the issues you will want to consider. Your system must 
+allow user programs to receive arguments from the command line. For example, by 
+the end of Assignment 2, your shell should be capable of executing lines (in 
+user programs) such as: <PRE>char *filename = "/bin/cp";
+char *args[4];
+pid_t pid;
+args[0] = "cp";
+args[1] = "file1";
+args[2] = "file2";
+args[3] = NULL;
+pid = fork();
+if (pid == 0)
+execv(filename, argv);
+</PRE>which will load the executable file cp from, install it as a new process, 
+and execute it. The new process will then find file1 on the disk and copy it to 
+file2. 
+<P>Some questions to think about: 
+<P>Passing arguments from one user program, through the kernel, into another 
+user program, is a bit of a chore. What form does this take in C? This is rather 
+tricky, and there are many ways to be led astray. You will probably find that 
+very detailed pictures and several walk-throughs will be most helpful. 
+<P>How will you determine: (a) the stack pointer initial value; (b) the initial 
+register contents; (c) the return value; (d) whether you can exec the program at 
+all? 
+<P>What new data structures will you need to manage multiple processes? 
+<P>What relationships do these new structures have with the rest of the system? 
+<P>How will you manage file accesses? When your shell invokes the cat command, 
+and the cat command starts to read file1, what will happen if the shell also 
+tries to read file1? What would you like to happen? 
+<P>How you will keep track of running processes. For which system calls is this 
+useful? 
+<P>How you will implement the execv system call. How is the argument passing in 
+this function different from that of other system calls? 
+<P>What functionality your shell should have. 
+<H2>Advanced Assignment Submission </H2>
+<P>Commit your changes and tag them with ass2_adv-finish, or the like. 
+<P>Now generate a file containing the diff. <PRE>% cvs -q rdiff -r os161-base -r ass2_adv-finish -u src &gt; ~/ass2_adv.diff
+</PRE>To check your diff file, see the <A 
+href="http://www.cse.unsw.edu.au/~cs3231/doc/subcheck.shtml">Assignment 
+Submission Guidelines</A> 
+<H3>Submitting Your Assignment</H3>Now submit the diff as your assignment. Be 
+careful to submit the <B>ass2_adv</B> assignment, and not accidently re-submit 
+over your basic assignment submission. <PRE>% cd ~
+% give cs3231 ass2_adv ass2_adv.diff
+</PRE>You're now done. 
+<P class=modified>Page last modified: 3:03 pm 27 Apr 2003</P>
+<P><A 
+href="http://www.cse.unsw.edu.au/~cs3231/assigns/os161/ass2/index.shtml">Screen 
+Version</A></P></BODY></HTML>

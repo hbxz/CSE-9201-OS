@@ -1,0 +1,25 @@
+#ifndef __FILE_H
+#define __FILE_H
+
+#include <types.h>
+#include <synch.h>
+#include <vnode.h>
+
+
+// --- fk ---
+// filetable holding 3 files for stdin/out/error and 13 other files
+struct vnode *filetable[16];
+
+int write(int fd, const void *buf, size_t nbytes);
+
+int open(const char *filename, int flags);
+
+int close(int fd);
+
+int read(int fd, void *buf, size_t buflen); 
+
+
+// --- / ---
+
+#endif
+

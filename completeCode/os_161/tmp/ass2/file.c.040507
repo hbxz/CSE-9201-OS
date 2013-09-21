@@ -1,0 +1,82 @@
+#include <types.h>
+#include <syscall.h>
+#include <thread.h>
+#include <curthread.h>
+#include <file.h>
+#include <vfs.h>
+#include <vnode.h>
+#include <lib.h>
+#include <kern/limits.h>
+#include <kern/errno.h>
+#include <kern/unistd.h>
+#include <kern/stat.h>
+#include <uio.h>
+//#include <machine/spl.h> // -- fk --
+
+int write(int fd, const void *buf, size_t nbytes){
+//	int spl = splhigh();
+//	struct vnode *vn;
+	int err;
+	struct uio ku;
+
+
+// if fd is not legal, write error
+// filetables of 16 fd's (array) 0-2 (stdin,out,error), 3-16 (normal files)
+// points to vnode..
+
+	/* Save the value of curspl, which belongs to the old context. */
+	//int savespl = curspl;
+	/* Right now, interrupts should be off. */
+	//curspl = SPL_HIGH;
+
+
+// kern/lib/copyinout.c -- !!
+// use copyin to read in string from register's pointer
+
+// make a filetable!!!
+// holds sixteen files (indexes) - file.h (kernelspace), create in runprogram.
+// Attach filetable to something (look in slides)
+
+
+	kprintf("Write in file.c\n");
+	kprintf("fd: %d \n",fd);
+	
+	if (fd == 1) {
+		kprintf("fd==1: Standard output -> write to console (con:)");
+
+
+
+		// open console device...
+//		err = vfs_open("con:", O_WRONLY, &vn);
+
+// write to console device???
+
+
+
+
+		mk_kuio(&ku, buf, nbytes, nbytes, UIO_WRITE);
+		err = VOP_WRITE(vn, &ku);
+
+		if (err) {
+			kprintf("Write error...\n");
+			vfs_close(vn);
+			vfs_remove("con:");
+			return -1;
+		}
+
+	vfs_close(vn);
+
+	return 1;
+
+
+
+	} else if (fd == 2){
+		kprintf("fd==2: Standard error -> write to console (con:)");
+	}
+
+//	splx(spl);
+//	splx(savespl);
+
+	return 0;
+}; 
+

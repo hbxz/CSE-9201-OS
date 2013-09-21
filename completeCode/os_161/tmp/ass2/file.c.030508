@@ -1,0 +1,158 @@
+#include <types.h>
+#include <syscall.h>
+#include <thread.h>
+#include <curthread.h>
+#include <file.h>
+#include <vfs.h>
+#include <vnode.h>
+#include <lib.h>
+#include <kern/limits.h>
+#include <kern/errno.h>
+#include <kern/unistd.h>
+#include <kern/stat.h>
+#include <uio.h>
+//#include <machine/spl.h> // -- fk --
+
+int write(int fd, const void *buf, size_t nbytes){
+
+	int err = 0;
+	int retval;
+	struct uio ku;
+	void *buffer;
+	buffer = kmalloc(nbytes);
+	// do some checking here...
+	// ex: check if file is open, if not you should 
+	// return an error...
+
+	// have to keep track of offset!!!
+
+	if (fd>3 || fd<16){
+
+		copyin((const_userptr_t) buf, buffer, nbytes);
+		mk_kuio(&ku, buffer, nbytes, 0, UIO_WRITE);
+		err = VOP_WRITE(filetable[fd],&ku);
+		
+		if (err){
+			retval = err;
+			kprintf("Error in file.write()");
+		} else {
+			retval = nbytes;
+		}
+	}
+
+	return retval;
+};
+
+
+
+
+int open(const char *filename, int flags){
+
+	int i;
+	int err = 0;
+
+	for (i=3;i<=16;i++){
+		if (filetable[i]==NULL){
+			filetable[i] = kmalloc(sizeof(struct vnode));
+			err = vfs_open(filename, flags, &filetable[i]);
+
+			if (!err){
+				return i;
+			} else {
+				kprintf("Could not open the file...\n");
+			}
+
+		}
+	}
+
+	return -1;
+
+};
+
+
+int close(int fd){
+	int err;
+
+	if (filetable[fd]!=NULL){
+		vfs_close(filetable[fd]); // this never fails...
+		kfree(filetable[fd]);
+		filetable[fd]=NULL;
+		err = 0;
+	} else {
+		err = -1;
+	}
+
+	return err;
+
+}
+
+
+
+int read(int fd, void *buf, size_t buflen){
+	int err;
+	int retval;
+	struct uio ku;		// kernelstuff
+	struct uio uu;		// userstuff
+
+	struct iovec uiov;
+
+
+//	void *kbuffer;
+//	kbuffer = kmalloc(sizeof(userptr_t));
+
+//	struct iovec *uiov;	// user iovec to transfer data to...   TESTING
+//	uiov = kmalloc(sizeof(struct uio));						// TESTING
+
+	void *buffer;
+	buffer = kmalloc(buflen);
+
+	// read bytes into an uio
+	mk_kuio(&ku, buffer, buflen, 0, UIO_READ);
+	err = VOP_READ(filetable[fd], &ku);
+	
+
+	// this returns the right value...
+	kprintf("read %d bytes into 'ku'\n",ku.uio_resid);
+
+
+	// copyout...
+	copyout(buffer, (userptr_t)buf, buflen);
+
+	// now we have to transfer the KernelstUff (ku)
+	// into userspace... by uiomove
+
+// this line does not work (TBL miss)
+//	uu.uio_iovec = uiov;				// datablock, points to buffer we want to transfer to
+
+// this should be a NEW datablock??
+//	uu.uio_iovec = ku.uio_iovec;		// datablock, points to buffer we want to transfer to
+//	uu.uio_offset = buflen; 			// offset into datablock
+//	uu.uio_resid = buflen; 				// tot. amount of data that can be transfered
+//	uu.uio_segflg = UIO_SYSSPACE;		// what kind of pointer we have (kern address)
+//	uu.uio_rw = UIO_READ;				// read or write
+//	uu.uio_space = NULL;				// adr. space for user pointer (NULL since UIO_SYSSPACE)
+
+
+	// have to get data out of the ku
+	// and into a kernelbuffer, 	
+	// then transfer the kernelbuffer using uiomove()
+
+
+
+//	while (uu.uio_resid >0){
+//	err = uiomove(buf, buflen, &uu);
+//	}
+
+
+	if (err) {
+		kprintf("Read error\n");
+		retval = err;
+	} else {
+		retval = ku.uio_offset;
+	}
+
+
+	return retval;
+}
+
+

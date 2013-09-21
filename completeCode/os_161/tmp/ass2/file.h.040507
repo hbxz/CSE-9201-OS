@@ -1,0 +1,15 @@
+#ifndef __FILE_H
+#define __FILE_H
+
+#include <types.h>
+#include <synch.h>
+#include <vnode.h>
+
+
+
+int write(int fd, const void *buf, size_t nbytes);
+
+
+
+#endif
+
